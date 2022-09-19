@@ -1,0 +1,142 @@
+---
+title: Title...
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '5'
+  html_notebook:
+    toc: yes
+    toc_depth: 5
+    number_sections: yes
+  word_document:
+    toc: yes
+    toc_depth: '5'
+bibliography: references.bib
+csl: instituto-brasileiro-de-informacao-em-ciencia-e-tecnologia-abnt-initials.csl
+---
+
+# **Research Question 1**
+
+To answer the research question "Do EMMEs affect navigation across the results of a search engine research page (SERP) in English as an L2, as measured by the **length of fixations** on the web page headers and snippets within the SERP?", a linear model was fit with Total length of fixations as response and Group (two levels: EMME and VIDEO) as predictor.
+
+The model shows a statistically significant effect of Group ($\beta=-23674.33, p=.008, 95\% CI=[-40910.47, -6438.20], R^2=.12$).
+
+```{r include=FALSE}
+# Load packages
+library(tidyverse) # Helper functions
+library(sjPlot)    # Model plotting
+library(jtools)    # APA theme
+
+# Configure APA theme for figures
+set_theme(theme_apa())
+
+# Load data for RQ1
+rq1 = read.table('data/RQ1.csv', sep = ';', encoding = 'UTF-8', header = 1) %>%
+  as_tibble() %>%
+  rename(Participant = X.U.FEFF.Participant)
+
+# Fit model for RQ1
+rq1_model = rq1 %>%
+  lm(EventDuration ~ Group, data = .)
+```
+
+**Table 1**
+
+*Total lenght of fixations predicted by Group*
+
+```{r echo=FALSE}
+# Print table with statistical results
+tab_model(rq1_model)
+```
+
+```{r echo=FALSE}
+# Plot model
+get_model_data(rq1_model, 'eff')$Group %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, predicted, ymin = conf.low, ymax = conf.high)) +
+  geom_errorbar(width = .1) +
+  geom_point() +
+  xlab('Group') + 
+  ylab('Event Duration (ms)') +
+  ylim(c(0, 70000))
+```
+
+*Figure 1*. Total lenght of fixations predicted by Group
+
+# Research Question 2
+
+To answer the reserch question "Do EMMEs affect source evaluation of web pages in English as an L2 that either endorse or refute the Learning Styles (LS) misconception, to be analyzed by the **length of fixations** on the source features (banner, author's name and occupation, and references) and on the contrast between **time spent reading reliable/non reliable pages** across groups?" two linear models were fit: the first with Total lenght of fixations on the source features as response and Group as predictors; and the second model with Total lenght of fixations as response and Group, Realiability [Relevance] and the interaction between the two variables as predictors.
+
+The hypotheses were that "when accessing a web page, participants in the EMME condition will **more likely examine source features** (banner, author's name and occupation, and references) compared to the control group. In addition, **pages considered reliable will be read more carefully, resulting in more fixations, while pages considered less reliable will be only strategically scanned and will thus have fewer fixations**. This difference may not be apparent among participants in the control condition, where participants might skip the source features. The control group may also find it more difficult to distinguish between reliable and non reliable pages, thus reading all texts from beginning to end, resulting in little to no difference in fixation times between reliable and non reliable pages."
+
+The first model shows no statistically significant effects. Thus, there is no evidence supporting a difference between groups in relation to total lenght of fixations in source features. However, as Figure 2 shows, Participants in the VIDEO condition tended to have longer total fixation lenght in comparison with participants in the EMME condition.
+
+The second model shows a statistically significant effect of Group ($\beta=84475.73, p=0.012,95\% CI=[18759.59, 150191.87], R^2=0.10$), but no statistically significant effect of Relevance nor Interaction. As Figure 3 shows, participants in the VIDEO condition spent more time reading both relevant and irrelevant pages. Participants in the EMME condition spen more time in Relevant Pages than in Irrelevant pages, but this difference was not statistically significant condidering the lack of a statistically significant interaction.
+
+```{r include=FALSE}
+# Load data for RQ2
+rq2 = read.table('data/RQ2evaluationSourceTexts.csv', sep = ';', encoding = 'UTF-8', header = 1) %>%
+  as_tibble() %>%
+  rename(Participant = X.U.FEFF.Participant)
+
+# Fit model 1 for RQ2
+rq2_model1 = rq2 %>%
+  filter(AOI == 'Source Features') %>%
+  lm(EventDuration ~ Group, data = .)
+
+# Fit model 2 for RQ2
+rq2_model2 = rq2 %>%
+  filter(AOI %in% c('Irrelevant Pages', 'Relevant Pages')) %>%
+  lm(EventDuration ~ Group * AOI, data = .)
+```
+
+**Table 2**
+
+*Results of the two models: Total lenght of fixations on the source features predicted by Group and Time spent reading by Group, Relevance and Interaction*
+
+```{r echo=FALSE}
+# Print table with statistical results
+tab_model(rq2_model1, rq2_model2)
+```
+
+```{r echo=FALSE}
+# Plot model
+get_model_data(rq2_model1, 'eff')$Group %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, predicted, ymin = conf.low, ymax = conf.high)) +
+  geom_errorbar(width = .1) +
+  geom_point() +
+  xlab('Group') + 
+  ylab('Event Duration (ms)') +
+  ylim(c(0, 60000))
+```
+
+*Figure 2*. *Total lenght of fixations on the source features predicted by Group*
+
+```{r echo=FALSE}
+# Plot model
+get_model_data(rq2_model2, 'int') %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             color = group_col)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .15)) +
+  geom_point(position = position_dodge(width = .15)) +
+  xlab('Group') + 
+  ylab('Event Duration (ms)') +
+  theme(legend.title = element_blank()) + 
+  ylim(c(0, 400000))
+```
+
+*Figure 3*. *Total lenght of fixations predicted by Group, Relevance and Interaction*
