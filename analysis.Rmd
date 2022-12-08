@@ -19,160 +19,134 @@ csl: instituto-brasileiro-de-informacao-em-ciencia-e-tecnologia-abnt-initials.cs
 
 ```{r include=FALSE}
 # Load packages
-library(tidyverse)  # Helper functions
-library(lme4)       # Mixed-effect models
-library(sjPlot)     # Model plotting
-library(datawizard) # Skewness and Kurtosis functions
-library(jtools)     # APA theme
-library(gridExtra)  # Multiple plots in one single image
+library(tidyverse)    # Helper functions
+library(lme4)         # Mixed-effect models
+library(sjPlot)       # Model plotting
+library(datawizard)   # Skewness and Kurtosis functions
+library(jtools)       # APA theme
+library(gridExtra)    # Multiple plots in one single image
+library(openxlsx)     # Save file in xlsx format
+library(RColorBrewer) # Colors
 
 # Configure APA theme for figures
-set_theme(theme_apa())
+theme_set(theme_apa())
 
 # Prevent scientific notation
 options(scipen = 999)
 
-# Load raw data for RQ1
-rq1 = read.table('data/RQ1sem_soma.csv', 
+# Load raw data - serp
+serp = read.table('data/serp_sem_soma.csv', 
                  sep = ';', 
                  dec = ',',
                  encoding = 'UTF-8',
                  header = 1) %>%
   as_tibble()
 
-# Load raw data for RQ2
-rq2_source_features = read.table('data/RQ2evaluationSourceFeaturessemSoma.csv', 
+# Load raw data - source_features
+source_features = read.table('data/source_features_sem_soma.csv', 
                  sep = ';', 
                  encoding = 'UTF-8', 
                  header = 1) %>%
   as_tibble()
 
-rq2_reliability = read.table('data/RQ2evaluationRelevantsemSoma.csv',
+# Load raw data - relevant
+relevant = read.table('data/relevant_sem_soma.csv',
                              sep = ';',
                              encoding = 'UTF-8',
                              header = 1) %>%
   as_tibble() %>%
-  mutate(AOI = 'Reliable') %>%
-  bind_rows(
-    read.table('data/RQ2evaluationIrrelevantSemsoma.csv',
+  mutate(AOI = 'Reliable')
+
+# Load raw data - irrelevant
+irrelevant = read.table('data/irrelevant_sem_soma.csv',
                sep = ';',
                encoding = 'UTF-8',
                header = 1) %>%
       as_tibble() %>%
       mutate(AOI = 'Non-reliable')
-  )
-
-# Load raw data for RQ3
-rq3 = read.table('data/RQ3surveyNavigation.csv', 
-                 sep = ';',
-                 encoding = 'UTF-8',
-                 header = 1) %>%
-  as_tibble()
-
-# Load raw data for RQ4
-rq4 = read.table('data/RQ4coding.csv',
-                 sep = ';',
-                 encoding = 'UTF-8',
-                 header = 1) %>%
-  as_tibble() %>%
-  pivot_longer(starts_with('LS'), 
-               names_to = 'test', 
-               values_to = 'response') %>%
-  mutate(test = test %>% str_sub(4)) %>%
-  group_by(Participant, test) %>%
-  summarize(meanResponse = mean(response)) %>%
-  mutate(Group = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,2],
-         Participant = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,3]) %>%
-  relocate(Participant, Group)
 ```
 
 ## Outliers Detection and Replacement
 
-Individual fixations that lasted two standart deviations above or below each participant fixation duration mean were considered outliers and were replaced by the participant fixation duration median[see @Salmeron2020, p. 1045]. Outliers represented 2.6% of individual fixations on the web page headers and snippets within the SERP.
+Individual fixations that lasted two standart deviations above or below each participant fixation duration mean were considered outliers and were replaced by the participant fixation duration median[see @Salmeron2020, p. 1045]. Outliers represented 4.56% of the durations.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 
 # Check outliers (individual fixations that lasted two SD above or below each student mean)
-rq1 = rq1 %>% 
+serp = serp %>% 
   group_by(Participant) %>%
   mutate(M = mean(Event.Duration..ms.),
          SD = sd(Event.Duration..ms.),
-         outlier = Event.Duration..ms. > M + (2 * SD) || 
+         outlier = Event.Duration..ms. > M + (2 * SD) | 
            Event.Duration..ms. < M - (2 * SD),
          Median = median(Event.Duration..ms.))
 
-rq2_source_features = rq2_source_features %>%
+source_features = source_features %>%
   group_by(Participant) %>%
   mutate(M = mean(Event.Duration..ms.),
          SD = sd(Event.Duration..ms.),
-         outlier = Event.Duration..ms. > M + (2 * SD) || 
+         outlier = Event.Duration..ms. > M + (2 * SD) |
            Event.Duration..ms. < M - (2 * SD),
          Median = median(Event.Duration..ms.))
 
-rq2_reliability = rq2_reliability %>%
+relevant = relevant %>%
   group_by(Participant, AOI) %>%
   mutate(M = mean(Event.Duration..ms.),
          SD = sd(Event.Duration..ms.),
-         outlier = Event.Duration..ms. > M + (2 * SD) || 
+         outlier = Event.Duration..ms. > M + (2 * SD) | 
            Event.Duration..ms. < M - (2 * SD),
          Median = median(Event.Duration..ms.))
 
+irrelevant = irrelevant %>%
+  group_by(Participant, AOI) %>%
+  mutate(M = mean(Event.Duration..ms.),
+         SD = sd(Event.Duration..ms.),
+         outlier = Event.Duration..ms. > M + (2 * SD) |
+           Event.Duration..ms. < M - (2 * SD),
+         Median = median(Event.Duration..ms.))
+```
+
+```{r}
+# Percentage of outliers
+
+# 4.56%
+c(serp$outlier,
+  source_features$outlier,
+  relevant$outlier,
+  irrelevant$outlier) %>% mean()
+
+```
+
+```{r}
 # Replace outlier with participant's median
-rq1 = rq1 %>%
+serp = serp %>%
   mutate(Event.Duration..ms. = 
            ifelse(outlier, Median, Event.Duration..ms.))
 
-rq2_source_features = rq2_source_features %>%
+source_features = source_features %>%
   mutate(Event.Duration..ms. = 
            ifelse(outlier, Median, Event.Duration..ms.))
 
-rq2_reliability = rq2_reliability %>%
+relevant = relevant %>%
+  mutate(Event.Duration..ms. = 
+           ifelse(outlier, Median, Event.Duration..ms.))
+
+irrelevant = irrelevant %>%
   mutate(Event.Duration..ms. = 
            ifelse(outlier, Median, Event.Duration..ms.))
 
 # Sum the fixations
-rq1 = rq1 %>%
-  summarise(EventDuration = sum(Event.Duration..ms.)) %>%
-  mutate(Group = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,2],
-         Participant = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,3]) %>%
-  relocate(Participant, Group)
+serp = serp %>%
+  summarise(EventDuration = sum(Event.Duration..ms.))
 
-rq2_source_features = rq2_source_features %>%
-  summarise(EventDuration = sum(Event.Duration..ms.)) %>%
-  mutate(Group = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,2],
-         Participant = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,3]) %>%
-  relocate(Participant, Group)
+source_features = source_features %>%
+  summarise(EventDuration = sum(Event.Duration..ms.))
 
-rq2_reliability = rq2_reliability  %>%
-  summarise(EventDuration = sum(Event.Duration..ms.)) %>%
-  mutate(Group = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,2],
-         Participant = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,3]) %>%
-  relocate(Participant, Group)
+relevant = relevant  %>%
+  summarise(EventDuration = sum(Event.Duration..ms.))
 
-rq3 = rq3 %>%
-  mutate(Group = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,2],
-         Participant = Participant %>% 
-           str_match('([A-Z]+)(\\d+)') %>%
-           .[,3]) %>%
-  relocate(Participant, Group)
+irrelevant = irrelevant %>% 
+  summarise(EventDuration = sum(Event.Duration..ms.))
 ```
 
 ## Tests of Normality and Data Transformation
@@ -182,99 +156,103 @@ Figure 1 shows the frequency distributions of the time variables used in the stu
 [see @Salmeron2020, p. 1047]
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-hist_rq1 = rq1 %>%
+hist_serp = serp %>%
     ggplot(aes(EventDuration)) +
     geom_histogram() +
-    xlab(str_wrap('Total length of fixations on the web page headers and snippets within the SERP', 
+    xlab(str_wrap('Total fixation duration on the web page headers and snippets within the SERP', 
                   width = 32)) +
     ylab('Frequency') +
     annotate('text', 
-             x = 120000, 
+             x = 100000, 
              y = 8, 
              label = paste0('Skewness: ', 
                             round(
-                              skewness(rq1$EventDuration)[1], 2))) +
+                              skewness(serp$EventDuration)[1], 2))) +
     annotate('text', 
-             x = 120000, 
+             x = 100000, 
              y = 7, 
              label = paste0('Kurtosis: ', 
                             round(
-                              kurtosis(rq1$EventDuration)[1], 2)))
+                              kurtosis(serp$EventDuration)[1], 2))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-hist_rq2.1 = rq2_source_features %>%
+hist_source_features = source_features %>%
     ggplot(aes(EventDuration)) +
     geom_histogram() +
-    xlab(str_wrap('Total length of fixations on the source features', 
+    xlab(str_wrap('Total fixation duration on the source features', 
                   width = 32)) +
     ylab('Frequency') +
     annotate('text', 
-             x = 80000, 
-             y = 6, 
+             x = 70000, 
+             y = 8.5, 
              label = paste0('Skewness: ', 
                             round(
                               skewness(
-                                rq2_source_features$EventDuration
+                                source_features$EventDuration
                                 )[1], 2))) +
     annotate('text', 
-             x = 80000, 
-             y = 5.5, 
+             x = 70000, 
+             y = 7.5, 
              label = paste0('Kurtosis: ', 
                             round(
                               kurtosis(
-                                rq2_source_features$EventDuration
-                                )[1], 2)))
+                                source_features$EventDuration
+                                )[1], 2))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-hist_rq2.2 = rq2_reliability %>%
+hist_reliable = relevant %>%
     ggplot(aes(EventDuration)) +
     geom_histogram() +
-    xlab(str_wrap('Time spent reading realiable/non reliable pages',
+    xlab(str_wrap('Time spent reading realiable pages',
                   width = 32)) +
     ylab('Frequency') +
     annotate('text', 
-             x = 540000, 
+             x = 450000, 
              y = 11, 
              label = paste0('Skewness: ', 
                             round(
                               skewness(
-                                rq2_reliability$EventDuration
+                                relevant$EventDuration
                                 )[1], 2))) +
     annotate('text', 
-             x = 540000, 
+             x = 450000, 
              y = 10, 
              label = paste0('Kurtosis: ', 
                             round(
                               kurtosis(
-                                rq2_reliability$EventDuration
-                                )[1], 2)))
+                                relevant$EventDuration
+                                )[1], 2))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-hist_rq3 = rq3 %>%
-    ggplot(aes(TotalEventDurationOnSERPSum)) +
+hist_nonreliable = irrelevant %>%
+    ggplot(aes(EventDuration)) +
     geom_histogram() +
-    xlab(str_wrap('Total event duration on SERP', 
+    xlab(str_wrap('Time spent reading non-reliable pages', 
                   width = 32)) +
     ylab('Frequency') +
     annotate('text', 
-             x = 120000, 
+             x = 450000, 
              y = 8, 
              label = paste0('Skewness: ', 
                             round(
                               skewness(
-                                rq3$TotalEventDurationOnSERPSum
+                                irrelevant$EventDuration
                                 )[1], 2))) +
     annotate('text', 
-             x = 120000, 
+             x = 450000, 
              y = 7, 
              label = paste0('Kurtosis: ', 
                             round(
                               kurtosis(
-                                rq3$TotalEventDurationOnSERPSum
-                                )[1], 2)))
+                                irrelevant$EventDuration
+                                )[1], 2))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
 
-figure1 = arrangeGrob(hist_rq1, 
-                      hist_rq2.1, 
-                      hist_rq2.2, 
-                      hist_rq3, 
+figure1 = arrangeGrob(hist_serp, 
+                      hist_source_features, 
+                      hist_reliable, 
+                      hist_nonreliable, 
                       ncol = 2)
 
 ggsave('figures/Figure1.png', 
@@ -291,15 +269,15 @@ grid.arrange(figure1)
 *Figure 1*. Histograms of time variables
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-rq1 = rq1 %>%
+serp = serp %>%
   mutate(log_EventDuration = log(EventDuration))
 
-hist_log_rq1 = rq1 %>%
+hist_log_serp = serp %>%
   ggplot(aes(log_EventDuration)) +
   geom_histogram(aes(y = ..density..)) +
   stat_function(fun = dnorm, 
-                args = list(mean = mean(rq1$log_EventDuration), 
-                            sd = sd(rq1$log_EventDuration)),
+                args = list(mean = mean(serp$log_EventDuration), 
+                            sd = sd(serp$log_EventDuration)),
                 colour = 'red') +
   xlab(str_wrap('Natural logarithm of total length of fixations on the web page headers and snippets within the SERP',
                 width = 32)) +
@@ -310,112 +288,112 @@ hist_log_rq1 = rq1 %>%
            label = paste0('Skewness: ', 
                           round(
                             skewness(
-                              rq1$log_EventDuration)[1], 2))) +
+                              serp$log_EventDuration)[1], 2))) +
   annotate('text', 
            x = 11, 
            y = 1, 
            label = paste0('Kurtosis: ', 
                           round(
                             kurtosis(
-                              rq1$log_EventDuration)[1], 2)))
+                              serp$log_EventDuration)[1], 2)))
 
-rq2_source_features = rq2_source_features %>%
+source_features = source_features %>%
   mutate(log_EventDuration = log(EventDuration))
 
-hist_log_rq2.1 = rq2_source_features %>%
+hist_log_source_features = source_features %>%
   ggplot(aes(log_EventDuration)) +
   geom_histogram(aes(y = ..density..)) +
   stat_function(fun = dnorm, 
                 args = list(
-                  mean = mean(rq2_source_features$log_EventDuration), 
-                  sd = sd(rq2_source_features$log_EventDuration)),
+                  mean = mean(source_features$log_EventDuration), 
+                  sd = sd(source_features$log_EventDuration)),
                 colour = 'red') +
     xlab(str_wrap('Natural logarithm of total length of fixations on the source features', 
                   width = 32)) +
     ylab('Density') +
     annotate('text', 
              x = 11, 
-             y = 1.1, 
+             y = 1.45, 
              label = paste0('Skewness: ', 
                             round(
                               skewness(
-                                rq2_source_features$log_EventDuration
+                                source_features$log_EventDuration
                                 )[1], 2))) +
     annotate('text', 
              x = 11, 
-             y = 1, 
+             y = 1.35, 
              label = paste0('Kurtosis: ', 
                             round(
                               kurtosis(
-                                rq2_source_features$log_EventDuration
+                                source_features$log_EventDuration
                                 )[1], 2)))
 
-hist_log_rq2.2 = rq2_reliability %>%
+hist_log_reliable = relevant %>%
   ggplot(aes(log(EventDuration))) +
   geom_histogram(aes(y = ..density..)) +
   stat_function(fun = dnorm, 
               args = list(
-                mean = mean(log(rq2_reliability$EventDuration)), 
-                sd = sd(log(rq2_reliability$EventDuration))),
+                mean = mean(log(relevant$EventDuration)), 
+                sd = sd(log(relevant$EventDuration))),
               colour = 'red') +
-  xlab(str_wrap('Natural logarithm of time spent reading realiable/non reliable pages',
+  xlab(str_wrap('Natural logarithm of time spent reading realiable pages',
                 width = 32)) +
   ylab('Density') +
+  annotate('text', 
+           x = 12.7, 
+           y = 1.85, 
+           label = paste0('Skewness: ', 
+                          round(
+                            skewness(
+                              log(relevant$EventDuration)
+                              )[1], 2))) +
   annotate('text', 
            x = 12.7, 
            y = 1.7, 
-           label = paste0('Skewness: ', 
-                          round(
-                            skewness(
-                              log(rq2_reliability$EventDuration)
-                              )[1], 2))) +
-  annotate('text', 
-           x = 12.7, 
-           y = 1.55, 
            label = paste0('Kurtosis: ', 
                           round(
                             kurtosis(
-                              log(rq2_reliability$EventDuration)
+                              log(relevant$EventDuration)
                               )[1], 2)))
 
-rq3 = rq3 %>%
-  mutate(log_TotalEventDurationOnSERPSum = 
-           log(TotalEventDurationOnSERPSum))
+irrelevant = irrelevant %>%
+  mutate(log_EventDuration = 
+           log(EventDuration))
 
-hist_log_rq3 = rq3 %>%
-  ggplot(aes(log_TotalEventDurationOnSERPSum)) +
+hist_log_nonreliable = irrelevant %>%
+  ggplot(aes(log_EventDuration)) +
   geom_histogram(aes(y = ..density..)) +
   stat_function(fun = dnorm, 
                 args = list(
-                  mean = mean(rq3$log_TotalEventDurationOnSERPSum,
+                  mean = mean(irrelevant$log_EventDuration,
                               na.rm = T), 
-                  sd = sd(rq3$log_TotalEventDurationOnSERPSum,
+                  sd = sd(irrelevant$log_EventDuration,
                           na.rm = T)),
                 colour = 'red') +  
-  xlab(str_wrap('Total event duration on SERP', 
+  xlab(str_wrap('Natural logarithm of time spent reading non-realiable pages', 
                 width = 32)) +
   ylab('Density') +
   annotate('text', 
-           x = 11, 
-           y = 1.1, 
+           x = 12.5, 
+           y = 1.5, 
            label = paste0('Skewness: ', 
                           round(
                             skewness(
-                              rq3$log_TotalEventDurationOnSERPSum
+                              irrelevant$log_EventDuration
                               )[1], 2))) +
   annotate('text', 
-           x = 11, 
-           y = 1, 
+           x = 12.5, 
+           y = 1.4, 
            label = paste0('Kurtosis: ', 
                           round(
                             kurtosis(
-                              rq3$log_TotalEventDurationOnSERPSum
+                              irrelevant$log_EventDuration
                               )[1], 2)))
 
-figure2 = arrangeGrob(hist_log_rq1, 
-                      hist_log_rq2.1, 
-                      hist_log_rq2.2, 
-                      hist_log_rq3, 
+figure2 = arrangeGrob(hist_log_serp, 
+                      hist_log_source_features, 
+                      hist_log_reliable, 
+                      hist_log_nonreliable, 
                       ncol = 2)
 
 ggsave('figures/Figure2.png', 
@@ -431,32 +409,71 @@ grid.arrange(figure2)
 
 *Figure 2*. Histograms of transformed time variables with theoretical probability distributions
 
+```{r}
+write_csv(serp, 'data/serp.csv')
+write_csv(source_features, 'data/source_features.csv')
+write_csv(relevant, 'data/reliable.csv')
+write_csv(irrelevant, 'data/nonreliable.csv')
+
+data = read.table('data/Variables_L2_EMME_clean_complete.csv', 
+                 sep = ';', 
+                 dec = ',',
+                 encoding = 'UTF-8',
+                 header = 1) %>%
+  left_join(serp %>%
+              rename(serp_clean = EventDuration,
+                     serp_clean_log = log_EventDuration),
+            by = 'Participant') %>%
+  left_join(source_features %>%
+              rename(source_features_clean = EventDuration,
+                     source_features_clean_log = log_EventDuration),
+            by = 'Participant') %>%
+  left_join(relevant %>%
+              rename(reliable = EventDuration) %>%
+              select(-AOI),
+            by = 'Participant') %>%
+  left_join(irrelevant %>%
+              rename(nonreliable = EventDuration) %>%
+              select(c(Participant, nonreliable)),
+            by = 'Participant') %>%
+  mutate(group = ifelse(Participant %>% str_detect('EMME'), 
+                        'EMME', 
+                        'VIDEO'))
+
+write.xlsx(data, 'data/data.xlsx')
+```
+
 # Main Analysis
 
 ## Research Question 1
 
-To answer the research question "Do EMMEs affect navigation across the results of a search engine research page (SERP) in English as an L2, as measured by the **length of fixations** on the web page headers and snippets within the SERP?", a linear model was fit with the natural logarithm of Total length of fixations as response and Group (two levels: EMME and VIDEO) as predictor.
+To answer the research questions "RQ1a Do **EMME**s affect navigation across the results of a search engine research page (SERP) in English (L2), measured by **fixation duration on the webpage headers and snippets of each result within the SERP**? Do **L2 level** and **self-perceived strategic behavior** moderate this interaction between EMMEs and navigation in L2?", and "RQ1b Do **EMME**s affect source evaluation of multiple online documents in English (L2) that either endorse or refute the Learning Styles (LS) misconception, to be analyzed by the contrast between fixation duration on **reliable versus non-reliable pages**, and on **total fixation duration on the source features** (author's name and occupation)? Do **L2 level** and **self-perceived strategic behavior** moderate this interaction between EMMEs and evaluation of sources in L2?", two linear models were fit: the first one was a multiple linear regression model with the natural logarithm of fixation duration on the webpage headers and snippets of each result within the SERP as response and Group (two levels: EMME and VIDEO), L2 level and self-perceived strategic behavior as predictors; the second one was a mixed-effects model with total fixation duration on the source features on reliable and non-reliable pages as response and Group, L2 level and self-perceived strategic behavior as predictors with random intercepts for participants.
 
-The model shows a statistically significant effect of Group ($\beta=-0.67, p=.001, 95\% CI=[-1.04, -0.30], R^2=.19, R^2 adjusted=.18$).
+The first model shows no statistically significant effect when all the possible interactions are considered. When interactions are removed from the model, it shows a statistically significant effect of Group ($\beta=-0.67, p=0.001,95\% CI=[-1.06, -0.28], R^2=.19, R^2 adjusted=.15$).
+
+The second model shows a similar pattern: no statistically significant effects when the interactions are considered and a statistically significant effect of Group ($\beta=56121.42, p=0.040,95\% CI=[2604.90, 109637.94], Marginal R^2=.12, Conditional R^2=.77$) when the interactions are removed from the model.
 
 ```{r include=FALSE}
-# Fit model for RQ1
-rq1_model = rq1 %>%
-  lm(log_EventDuration ~ Group, data = .)
+# Fit model 1 for RQ1
+rq1_model1 = data %>%
+  lm(serp_clean_log ~ group + lextale + survey, data = .)
 ```
 
 **Table 1**
 
-*Total lenght of fixations predicted by Group*
+*Total fixation duration on SERP predicted by Group, L2 level and self-perceived strategic behavior*
 
 ```{r echo=FALSE}
 # Print table with statistical results
-# tab_model(rq1_model)
+# tab_model(rq1_model1)
 ```
+
+### Figure 3
 
 ```{r echo=FALSE}
 # Plot model
-figure3 = get_model_data(rq1_model, 'eff')$Group %>%
+
+figure3 = get_model_data(rq1_model1, 'eff')$group %>%
   as_tibble() %>%
   mutate(x = x %>% 
            as_factor() %>%
@@ -470,8 +487,7 @@ figure3 = get_model_data(rq1_model, 'eff')$Group %>%
   geom_point() +
   geom_text(nudge_x = .15) +
   xlab('Group') + 
-  ylab('Event Duration (log(ms))') +
-  ylim(c(0, 12))
+  ylab('Fixation duration on SERP (log(ms))')
 
 ggsave('figures/Figure3.png', 
        figure3,
@@ -486,38 +502,31 @@ figure3
 
 *Figure 3*. Log of total lenght of fixations predicted by Group
 
-## Research Question 2
-
-To answer the reserch question "Do EMMEs affect source evaluation of web pages in English as an L2 that either endorse or refute the Learning Styles (LS) misconception, to be analyzed by the **length of fixations** on the source features (banner, author's name and occupation, and references) and on the contrast between **time spent reading reliable/non reliable pages** across groups?" two linear models were fit: the first with the log of total lenght of fixations on the source features as response and Group as predictors; and the second model with total lenght of fixations as response and Group, Realiability and the interaction between the two variables as predictors.
-
-The hypotheses were that "when accessing a web page, participants in the EMME condition will **more likely examine source features** (banner, author's name and occupation, and references) compared to the control group. In addition, **pages considered reliable will be read more carefully, resulting in more fixations, while pages considered less reliable will be only strategically scanned and will thus have fewer fixations**. This difference may not be apparent among participants in the control condition, where participants might skip the source features. The control group may also find it more difficult to distinguish between reliable and non reliable pages, thus reading all texts from beginning to end, resulting in little to no difference in fixation times between reliable and non reliable pages."
-
-The first model shows no statistically significant effects. Thus, there is no evidence supporting a difference between groups in relation to total lenght of fixations in source features. However, as Figure 4 shows, Participants in the VIDEO condition tended to have longer total fixation lenght in comparison with participants in the EMME condition.
-
-The second model shows a statistically significant effect of Group ($\beta=81045.40, p=0.016,95\% CI=[15145.63, 146945.17], R^2=.10, R^2 adjusted=.08$), but no statistically significant effect of Relevance nor Interaction. As Figure 5 shows, participants in the VIDEO condition spent more time reading both reliable/non-reliable pages. Participants in the EMME condition spen more time in Reliable Pages than in Non-Reliable pages, but this difference was not statistically significant condidering the lack of a statistically significant interaction.
-
 ```{r include=FALSE}
-# Fit model 1 for RQ2
-rq2_model1 = rq2_source_features %>%
-  lm(log_EventDuration ~ Group, data = .)
-
-# Fit model 2 for RQ2
-rq2_model2 = rq2_reliability %>%
-  lm(EventDuration ~ Group * AOI, data = .)
+# Fit model 2 for RQ1
+rq1_model2 = data %>%
+  pivot_longer(c(reliable, nonreliable), 
+               names_to = 'reliability',
+               values_to = 'duration') %>%
+  lmer(duration ~ group + lextale + survey + (1|Participant), 
+       data = .)
 ```
 
 **Table 2**
 
-*Results of the two models: Total lenght of fixations on the source features predicted by Group and Time spent reading by Group, Relevance and Interaction*
+*Total fixation duration on reliable and non-reliable pages predicted by Group, L2 level and self-perceived strategic behavior*
 
 ```{r echo=FALSE}
 # Print table with statistical results
-# tab_model(rq2_model1, rq2_model2)
+# tab_model(rq1_model2)
 ```
+
+### Figure 4
 
 ```{r echo=FALSE}
 # Plot model
-figure4 = get_model_data(rq2_model1, 'eff')$Group %>%
+
+figure4 = get_model_data(rq1_model2, 'pred')$group %>%
   as_tibble() %>%
   mutate(x = x %>% 
            as_factor() %>%
@@ -525,14 +534,15 @@ figure4 = get_model_data(rq2_model1, 'eff')$Group %>%
   ggplot(aes(x, 
              predicted, 
              ymin = conf.low, 
-             ymax = conf.high,
+             ymax = conf.high, 
              label = round(predicted, 2))) +
   geom_errorbar(width = .1) +
   geom_point() +
-  geom_text(nudge_x = .15) +
+  geom_text(nudge_x = .2) +
   xlab('Group') + 
-  ylab('Event Duration (log(ms))') +
-  ylim(c(0, 11))
+  ylab(str_wrap(
+    'Fixation duration on reliable/non-reliable pages (ms)',
+    45))
 
 ggsave('figures/Figure4.png', 
        figure4,
@@ -545,28 +555,57 @@ ggsave('figures/Figure4.png',
 figure4
 ```
 
-*Figure 4*. *Total lenght of fixations on the source features predicted by Group*
+*Figure 4*. Fixation duration on reliable/non-reliable pages predicted by Group
+
+## Research Question 2
+
+To answer the reserch questions "RQ2a Do **EMME**s enhance the identification of opposing perspectives about the Learning styles theory and criticism towards this misconception, as measured by an **essay writing task**? Do **English level**, **navigation and evaluation behavior** mediate the effect of EMMEs on argumentation score?", "RQ2b Do **EMME**s increase memory for the sources when reading multiple documents? Do **English level**, **navigation and evaluation behavior** mediate the effect of EMMEs on source memory?" and "RQ2c Are **EMME**s linked with updating of misconceptions about Learning Styles, to be measured in a **pre/posttest**? Do **English level**, **navigation and evaluation behavior** mediate the effect of EMMEs on misconception change?", two linear models were fit: the first with the log of total lenght of fixations on the source features as response and Group as predictors; and the second model with total lenght of fixations as response and Group, Realiability and the interaction between the two variables as predictors.
+
+...
+
+```{r include=FALSE}
+# Fit model 1 for RQ2
+rq2_model1 = data %>%
+  lm(argumentation ~ group * lextale * serp_clean_log * source_features_clean_log, data = .)
+
+# Fit model 2 for RQ2
+rq2_model2 = data %>%
+  lm(smt ~ group * lextale * serp_clean_log * source_features_clean_log, data = .)
+
+# Fit model 3 for RQ2
+rq2_model3 = data %>%
+  pivot_longer(c(pre, post), 
+               names_to = 'preposttest',
+               values_to = 'response') %>%
+  lmer(response ~ group + lextale + serp_clean_log + source_features_clean_log + preposttest + (1|Participant), 
+       data = .)
+```
+
+**Table 2**
+
+*...*
+
+```{r echo=FALSE}
+# Print table with statistical results
+# tab_model(rq2_model1)
+# tab_model(rq2_model2)
+# tab_model(rq2_model3)
+```
+
+### Figure 5
 
 ```{r echo=FALSE}
 # Plot model
-figure5 = get_model_data(rq2_model2, 'int') %>%
+figure5 = get_model_data(rq2_model1, 'eff')$serp_clean_log %>%
   as_tibble() %>%
-  mutate(x = x %>% 
-           as_factor() %>%
-           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
   ggplot(aes(x, 
-             (predicted/1000), 
-             ymin = (conf.low/1000), 
-             ymax = (conf.high/1000), 
-             color = group_col,
-             label = round(predicted/1000, 2))) +
-  geom_errorbar(width = .1, position = position_dodge(width = .15)) +
-  geom_point(position = position_dodge(width = .15)) +
-  geom_text(nudge_x = .2) +
-  xlab('Group') + 
-  ylab('Event Duration (s)') +
-  theme(legend.title = element_blank()) +
-  ylim(c(0, 400))
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('Fixation duration on SERP (log(ms))') + 
+  ylab('Argumentation score')
 
 ggsave('figures/Figure5.png', 
        figure5,
@@ -579,76 +618,22 @@ ggsave('figures/Figure5.png',
 figure5
 ```
 
-*Figure 5*. *Total lenght of fixations predicted by Group, Relevance and Interaction*
+*Figure 5*. *Argumentation scores predicted by Fixation duration on SERP*
 
-## Research Question 3
-
-To answer the research question "does self-perceived strategic behavior, as measured by the **Second Language Online Reading Strategy Inventory** (LI, 2020) predict **performance on the navigation task?**" a model was fit with the Sum of the average score on the survey as predictor and the Natural logarithm of total length of fixations on the web page headers and snippets within the SERP as response.
-
-The hyphothesis was that "... the participants who reported a **high frequency of strategy use** in the survey are likely to **benefit more from EMMEs** and **attend more to source features** compared to the participants who reported low frequency of strategy use". As shown in Table 3, no statistically significant effects were observed.
-
-```{r include=FALSE}
-# Fit the model RQ3
-rq3_model = rq3 %>%
-  left_join(rq1 %>%
-              select(-EventDuration),
-            by = c('Participant' = 'Participant', 
-                   'Group' = 'Group')) %>%
-  lm(log_EventDuration ~ AverageScoreOnSurveySum, data = .)
-```
-
-**Table 3**
-
-*Total length of fixations predicted by the sums of the average scores on the survey*
-
-```{r echo=FALSE}
-# Print table with statistical results
-# tab_model(rq3_model)
-```
-
-## Research Question 4
-
-To answer the research question "do **EMMEs** enhance sensitivity to inaccurate information and updating of misconceptions about Learning Styles, to be analyzed by **the arguments in an essay** and a **multiple-choice pre-test/posttest**?" a mixed-effects model was fit with Mean response as response variable, Group and test (pre and post) and their interactin as predictors, with random intercepts for participants.
-
-The hypothesis were "... a positive effect of EMMEs on the construction of a coherent argumentation in the essays, demonstrating that the participant was able to determine that the Learning styles theory was a misconception and to select arguments to ground her/his opinion based on justification by authority and justification by multiple sources (BRAASCH; BRATEN; BRITT; STEFFENS; STROMSO, 2014)" and "... a greater difference from pre- to posttest regarding misconception update among participants in the EMMEs group compared to the control group."
-
-Table 4 shows a statistically significant effect of Test: participants tended to score higher values in the scale in the posttest in comparison with the pretest $(\beta=1.09, p=.007, CI=[0.30, 1.89], Marginal~R^2=0.07, Conditional~R^2=0.43)$. However, both groups performed similarly, as evidenced by the lack of statistically significant effects of Group and interaction.
-
-```{r include=FALSE}
-# Fit model for RQ4
-rq4_model = rq4 %>%
-  mutate(test = as_factor(test) %>% relevel('pretest')) %>%
-  lmer(meanResponse ~ Group * test + (1|Participant), data = .)
-```
-
-**Table 4**
-
-*Mean response predicted by Group and Test (pre and post)*
-
-```{r echo=FALSE}
-# Print table with statistical results
-#tab_model(rq4_model)
-```
+### Figure 6
 
 ```{r echo=FALSE}
 # Plot model
-figure6 = get_model_data(rq4_model, 'int') %>%
+figure6 = get_model_data(rq2_model1, 'eff')$source_features %>%
   as_tibble() %>%
-  mutate(x = x %>% 
-           as_factor() %>%
-           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
   ggplot(aes(x, 
              predicted, 
              ymin = conf.low, 
-             ymax = conf.high, 
-             color = group_col,
-             label = round(predicted, 2))) +
-  geom_errorbar(width = .1, position = position_dodge(width = .15)) +
-  geom_point(position = position_dodge(width = .15)) +
-  geom_text(nudge_x = .15) +
-  xlab('Group') + 
-  ylab('Mean response') +
-  theme(legend.title = element_blank())
+             ymax = conf.high)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('Fixation duration on the Source Features (log(ms))') + 
+  ylab('Argumentation score')
 
 ggsave('figures/Figure6.png', 
        figure6,
@@ -661,6 +646,451 @@ ggsave('figures/Figure6.png',
 figure6
 ```
 
-*Figure 6*. *Mean response predicted by Group, test and Interaction*
+*Figure 6*. *Argumentation score predicted by Fixation duraton on the Source Features*
 
-# References
+### Figure 7
+
+```{r}
+# Plot model
+figure7 = get_model_data(rq2_model1, 'int')[[4]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = .6)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Argumentation score',
+    45)) +
+  scale_color_brewer(palette = 'Dark2')
+
+ggsave('figures/Figure7.png', 
+       figure7,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure7
+```
+
+*Figure 7*. Interaction between Group and Fixation duration on source features
+
+### Figure 8
+
+```{r}
+# Plot model
+figure8 = get_model_data(rq2_model1, 'int')[[5]] %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high,
+             group = group)) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('English level') + 
+  ylab(str_wrap(
+    'Argumentation score',
+    45)) +
+  scale_color_brewer(palette = 'Dark2')
+
+ggsave('figures/Figure8.png', 
+       figure8,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure8
+```
+
+*Figure 8*. Interaction between English level and Fixation duration on source features
+
+### Figure 9
+
+```{r}
+# Plot model
+figure9 = get_model_data(rq2_model1, 'int')[[6]] %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high,
+             group = group)) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('Fixation duration on SERP (log(ms))') + 
+  ylab(str_wrap(
+    'Argumentation score',
+    45)) +
+  scale_color_brewer(palette = 'Dark2')
+
+ggsave('figures/Figure9.png', 
+       figure9,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure9
+```
+
+*Figure 9*. Interaction between Fixation duration on SERP and Fixation duration on source features
+
+### Figure 10
+
+```{r}
+# Plot model
+figure10 = get_model_data(rq2_model2, 'eff')$group %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2))) +
+  geom_errorbar(width = .1) +
+  geom_point() +
+  geom_text(nudge_x = .15) +
+  xlab('Group') + 
+  ylab('Scores on the Source Memory Task')
+
+ggsave('figures/Figure10.png', 
+       figure10,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure10
+```
+
+*Figure 10*. Scores on the Source Memory Task predicted by Group
+
+### Figure 11
+
+```{r}
+# Plot model
+figure11 = get_model_data(rq2_model2, 'eff')$lextale %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('English level') + 
+  ylab('Scores on the Source Memory Task')
+
+ggsave('figures/Figure11.png', 
+       figure11,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure11
+```
+
+*Figure 11*. Scores on the Source Memory Task predicted by English level
+
+### Figure 12
+
+```{r}
+# Plot model
+figure12 = get_model_data(rq2_model2, 'eff')$serp_clean_log %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('Fixation duration on SERP (log(ms))') + 
+  ylab('Scores on the Source Memory Task')
+
+ggsave('figures/Figure12.png', 
+       figure12,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure12
+```
+
+*Figure 12*. Scores on the Source Memory Task predicted by Fixation duration on SERP
+
+### Figure 13
+
+```{r}
+# Plot model
+figure13 = get_model_data(rq2_model2, 'eff')$source_features_clean_log %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('Fixation duration on the Source Features') + 
+  ylab('Scores on the Source Memory Task')
+
+ggsave('figures/Figure13.png', 
+       figure13,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure13
+```
+
+*Figure 13*. Scores on the Source Memory Task predicted by Fixation duration on the Source Features
+
+### Figure 14
+
+```{r}
+# Plot model
+figure14 = get_model_data(rq2_model2, 'int')[[1]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = .6)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2')
+
+ggsave('figures/Figure14.png', 
+       figure14,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure14
+```
+
+*Figure 14*. Interaction between Group and English level
+
+### Figure 15
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[2]]
+
+figure15
+
+ggsave('figures/Figure15.png', 
+       figure15,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure15
+```
+
+### Figure 16
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[3]]
+
+figure16
+
+ggsave('figures/Figure16.png', 
+       figure16,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure16
+```
+
+### Figure 17
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[4]]
+
+figure17
+
+ggsave('figures/Figure17.png', 
+       figure17,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure17
+```
+
+### Figure 18
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[5]]
+
+figure18
+
+ggsave('figures/Figure18.png', 
+       figure18,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure18
+```
+
+### Figure 19
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[6]]
+
+figure19
+
+ggsave('figures/Figure19.png', 
+       figure19,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure19
+```
+
+### Figure 20
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[7]]
+
+figure20
+
+ggsave('figures/Figure20.png', 
+       figure20,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure20
+```
+
+### Figure 21
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[8]]
+
+figure21
+
+ggsave('figures/Figure21.png', 
+       figure21,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure21
+```
+
+### Figure 22
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[9]]
+
+figure22
+
+ggsave('figures/Figure22.png', 
+       figure22,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure22
+```
+
+### Figure 23
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[10]]
+
+figure23
+
+ggsave('figures/Figure23.png', 
+       figure23,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure23
+```
+
+### Figure 24
+
+```{r}
+# Plot model
+plot_model(rq2_model2, type = 'int')[[11]]
+
+figure24
+
+ggsave('figures/Figure24.png', 
+       figure24,
+       device = 'png', 
+       width = 16, 
+       height = 9, 
+       units = 'cm', 
+       dpi = 300)
+
+figure24
+```
+
+### References
