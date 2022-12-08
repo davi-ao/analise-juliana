@@ -670,7 +670,11 @@ figure7 = get_model_data(rq2_model1, 'int')[[4]] %>%
   ylab(str_wrap(
     'Argumentation score',
     45)) +
-  scale_color_brewer(palette = 'Dark2')
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on source features (log(ms))',
+                  18))
 
 ggsave('figures/Figure7.png', 
        figure7,
@@ -702,7 +706,11 @@ figure8 = get_model_data(rq2_model1, 'int')[[5]] %>%
   ylab(str_wrap(
     'Argumentation score',
     45)) +
-  scale_color_brewer(palette = 'Dark2')
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on source features (log(ms))',
+                  18))
 
 ggsave('figures/Figure8.png', 
        figure8,
@@ -734,7 +742,11 @@ figure9 = get_model_data(rq2_model1, 'int')[[6]] %>%
   ylab(str_wrap(
     'Argumentation score',
     45)) +
-  scale_color_brewer(palette = 'Dark2')
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on source features (log(ms))',
+                  18))
 
 ggsave('figures/Figure9.png', 
        figure9,
@@ -888,7 +900,11 @@ figure14 = get_model_data(rq2_model2, 'int')[[1]] %>%
   ylab(str_wrap(
     'Scores on the Source Memory Task',
     45)) +
-  scale_color_brewer(palette = 'Dark2')
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('English level',
+                  18))
 
 ggsave('figures/Figure14.png', 
        figure14,
@@ -907,9 +923,29 @@ figure14
 
 ```{r}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[2]]
-
-figure15
+figure15 = get_model_data(rq2_model2, 'int')[[2]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = .6)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on SERP (log(ms))',
+                  18))
 
 ggsave('figures/Figure15.png', 
        figure15,
@@ -922,13 +958,30 @@ ggsave('figures/Figure15.png',
 figure15
 ```
 
+*Figure 15*. Interaction between Group and Fixation duration on SERP
+
 ### Figure 16
 
 ```{r}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[3]]
-
-figure16
+figure16 = get_model_data(rq2_model2, 'int')[[3]] %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high,
+             group = group)) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('English level') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on SERP (log(ms))',
+                  18))
 
 ggsave('figures/Figure16.png', 
        figure16,
@@ -941,13 +994,35 @@ ggsave('figures/Figure16.png',
 figure16
 ```
 
+*Figure 16*. Interaction between English level and Fixation duration on SERP
+
 ### Figure 17
 
 ```{r}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[4]]
-
-figure17
+figure17 = get_model_data(rq2_model2, 'int')[[4]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = .6)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on source features (log(ms))',
+                  18))
 
 ggsave('figures/Figure17.png', 
        figure17,
@@ -960,13 +1035,30 @@ ggsave('figures/Figure17.png',
 figure17
 ```
 
+*Figure 17*. Interaction between Group and Fixation duration on source features
+
 ### Figure 18
 
 ```{r}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[5]]
-
-figure18
+figure18 = get_model_data(rq2_model2, 'int')[[5]] %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high,
+             group = group)) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('English level') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on source features (log(ms))',
+                  18))
 
 ggsave('figures/Figure18.png', 
        figure18,
@@ -979,13 +1071,30 @@ ggsave('figures/Figure18.png',
 figure18
 ```
 
+*Figure 18*. Interaction between English level and Fixation duration on source features
+
 ### Figure 19
 
 ```{r}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[6]]
-
-figure19
+figure19 = get_model_data(rq2_model2, 'int')[[6]] %>%
+  as_tibble() %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high,
+             group = group)) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('Fixation duration on SERP (log(ms))') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on source features (log(ms))',
+                  18))
 
 ggsave('figures/Figure19.png', 
        figure19,
@@ -998,13 +1107,39 @@ ggsave('figures/Figure19.png',
 figure19
 ```
 
+*Figure 19*. Interaction between Fixation duration on SERP and Fixation duration on source features
+
 ### Figure 20
 
 ```{r}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[7]]
-
-figure20
+figure20 = get_model_data(rq2_model2, 'int')[[7]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO'),
+         facet = facet %>% 
+           str_replace_all('serp_clean_log',
+                           'Fixation duration on SERP')) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = 1)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('English level',
+                  18)) + 
+  facet_grid(cols = vars(facet))
 
 ggsave('figures/Figure20.png', 
        figure20,
@@ -1016,6 +1151,8 @@ ggsave('figures/Figure20.png',
 
 figure20
 ```
+
+*Figure 20*. Interaction between Group, English level and Fixation duration on SERP
 
 ### Figure 21
 
