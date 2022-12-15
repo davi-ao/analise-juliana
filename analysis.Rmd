@@ -1,14 +1,14 @@
 ---
 title: "The attentive online reading: do eye movement modeling examples enhance navigation and evaluation of multiple documents in English (L2)?"
 output:
-  pdf_document:
+  word_document:
     toc: yes
     toc_depth: '5'
   html_notebook:
     toc: yes
     toc_depth: 5
     number_sections: yes
-  word_document:
+  pdf_document:
     toc: yes
     toc_depth: '5'
 bibliography: references.bib
@@ -17,7 +17,7 @@ csl: instituto-brasileiro-de-informacao-em-ciencia-e-tecnologia-abnt-initials.cs
 
 # Preliminary Analyses
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Load packages
 library(tidyverse)    # Helper functions
 library(lme4)         # Mixed-effect models
@@ -106,7 +106,7 @@ irrelevant = irrelevant %>%
          Median = median(Event.Duration..ms.))
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Percentage of outliers
 
 # 4.56%
@@ -117,7 +117,7 @@ c(serp$outlier,
 
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Replace outlier with participant's median
 serp = serp %>%
   mutate(Event.Duration..ms. = 
@@ -151,7 +151,7 @@ irrelevant = irrelevant %>%
 
 ## Tests of Normality and Data Transformation
 
-Figure 1 shows the frequency distributions of the time variables used in the study. All distributions have skewness values higher than 0.5, being right-skewed, as it is commonly observed with time variables. The variables were log-transformed to better approximated to a normal distribution. The log-transformed variables are shown in Figure 2 with their theoretical probability distributions. Transformation resulted in improved skewness values and, hence, more normally-distributed variables in three of the four variables. Thus, the log-transformed variables were used in the next steps of data analysis, except for Time spent reading realiable/non-reliable pages.
+Figure 1 shows the frequency distributions of the time variables used in the study. All distributions have skewness values higher than 0.5, being right-skewed, as it is commonly observed with time variables. The variables were log-transformed to be better approximated to a normal distribution. The log-transformed variables are shown in Figure 2 with their theoretical probability distributions. Transformation resulted in improved skewness values for two of the four variables, namely, total fixation duration on serp and total fixation duration on source features. Thus, log-transformed variables were used for these two variables.
 
 [see @Salmeron2020, p. 1047]
 
@@ -409,7 +409,7 @@ grid.arrange(figure2)
 
 *Figure 2*. Histograms of transformed time variables with theoretical probability distributions
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 write_csv(serp, 'data/serp.csv')
 write_csv(source_features, 'data/source_features.csv')
 write_csv(relevant, 'data/reliable.csv')
@@ -445,34 +445,29 @@ write.xlsx(data, 'data/data.xlsx')
 
 # Main Analysis
 
-## Research Question 1
+## Research Questions 1a and 1b
 
-To answer the research questions "RQ1a Do **EMME**s affect navigation across the results of a search engine research page (SERP) in English (L2), measured by **fixation duration on the webpage headers and snippets of each result within the SERP**? Do **L2 level** and **self-perceived strategic behavior** moderate this interaction between EMMEs and navigation in L2?", and "RQ1b Do **EMME**s affect source evaluation of multiple online documents in English (L2) that either endorse or refute the Learning Styles (LS) misconception, to be analyzed by the contrast between fixation duration on **reliable versus non-reliable pages**, and on **total fixation duration on the source features** (author's name and occupation)? Do **L2 level** and **self-perceived strategic behavior** moderate this interaction between EMMEs and evaluation of sources in L2?", two linear models were fit: the first one was a multiple linear regression model with the natural logarithm of fixation duration on the webpage headers and snippets of each result within the SERP as response and Group (two levels: EMME and VIDEO), L2 level and self-perceived strategic behavior as predictors; the second one was a mixed-effects model with total fixation duration on the source features on reliable and non-reliable pages as response and Group, L2 level and self-perceived strategic behavior as predictors with random intercepts for participants.
+To answer the research questions RQ1a and RQ1b, two linear models were fit: the first one was a multiple linear regression model with the natural logarithm of fixation duration on SERP as response and Group (two levels: EMME and VIDEO), L2 level, and self-perceived strategic behavior as predictors; the second one was a mixed-effects model with total fixation duration on source features, on reliable and non-reliable pages, as response, and Group, L2 level, and self-perceived strategic behavior as predictors with random intercepts for participants.
 
-The first model shows no statistically significant effect when all the possible interactions are considered. When interactions are removed from the model, it shows a statistically significant effect of Group ($\beta=-0.67, p=0.001,95\% CI=[-1.06, -0.28], R^2=.19, R^2 adjusted=.15$).
+The first model shows no statistically significant effect when all the possible interactions are considered. When interactions are removed from the model, it shows a statistically significant effect of Group ($\beta=-0.67, p=0.001,95\% CI=[-1.06, -0.28], R^2=.19, R^2 adjusted=.15$) (see Table 1).
 
-The second model shows a similar pattern: no statistically significant effects when the interactions are considered and a statistically significant effect of Group ($\beta=56121.42, p=0.040,95\% CI=[2604.90, 109637.94], Marginal R^2=.12, Conditional R^2=.77$) when the interactions are removed from the model.
+The second model shows a similar pattern: no statistically significant effects when the interactions are considered and a statistically significant effect of Group ($\beta=56121.42, p=0.040,95\% CI=[2604.90, 109637.94], Marginal R^2=.12, Conditional R^2=.77$) when the interactions are removed from the model (see Table 2).
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Fit model 1 for RQ1
 rq1_model1 = data %>%
   lm(serp_clean_log ~ group + lextale + survey, data = .)
 ```
 
-**Table 1**
-
-*Total fixation duration on SERP predicted by Group, L2 level and self-perceived strategic behavior*
-
-```{r echo=FALSE}
-# Print table with statistical results
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Table 1
 # tab_model(rq1_model1)
 ```
 
 ### Figure 3
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
-
 figure3 = get_model_data(rq1_model1, 'eff')$group %>%
   as_tibble() %>%
   mutate(x = x %>% 
@@ -502,7 +497,7 @@ figure3
 
 *Figure 3*. Log of total lenght of fixations predicted by Group
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Fit model 2 for RQ1
 rq1_model2 = data %>%
   pivot_longer(c(reliable, nonreliable), 
@@ -512,18 +507,14 @@ rq1_model2 = data %>%
        data = .)
 ```
 
-**Table 2**
-
-*Total fixation duration on reliable and non-reliable pages predicted by Group, L2 level and self-perceived strategic behavior*
-
-```{r echo=FALSE}
-# Print table with statistical results
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Table 2
 # tab_model(rq1_model2)
 ```
 
 ### Figure 4
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 
 figure4 = get_model_data(rq1_model2, 'pred')$group %>%
@@ -557,13 +548,17 @@ figure4
 
 *Figure 4*. Fixation duration on reliable/non-reliable pages predicted by Group
 
-## Research Question 2
+## Research Questions 2a, 2b and 2c
 
-To answer the reserch questions "RQ2a Do **EMME**s enhance the identification of opposing perspectives about the Learning styles theory and criticism towards this misconception, as measured by an **essay writing task**? Do **English level**, **navigation and evaluation behavior** mediate the effect of EMMEs on argumentation score?", "RQ2b Do **EMME**s increase memory for the sources when reading multiple documents? Do **English level**, **navigation and evaluation behavior** mediate the effect of EMMEs on source memory?" and "RQ2c Are **EMME**s linked with updating of misconceptions about Learning Styles, to be measured in a **pre/posttest**? Do **English level**, **navigation and evaluation behavior** mediate the effect of EMMEs on misconception change?", two linear models were fit: the first with the log of total lenght of fixations on the source features as response and Group as predictors; and the second model with total lenght of fixations as response and Group, Realiability and the interaction between the two variables as predictors.
+To answer the reserch questions RQ2a, RQ2b, and RQ2c, three linear models were fit: the first with the argumentation scores as response and Group, English level, Fixation duration on SERP and fixation duration on source features as predictors; the second model with smt scores as response and Group, English level, Fixation duration on SERP and fixation duration on source features as predictors; and the third model, a mixed-effects model, with scores on the pre and post tests as response, Group, English level, Fixation duration on SERP, Fixation duration on source features, and moment (pre and post) as predictors, and random intercepts for participants.
 
-...
+The first model ($R^2=0.412, R^2 adjusted=0.196$) shows statistically significant effects of Fixation duration on SERP ($\beta=-207.00, p=0.040,95\% CI=[-403.65, -10.36]$) and Fixation duration on source features ($\beta=-233.13, p=0.025,95\% CI=[-435.59, -30.66]$) (Figures 5 and 6). Additionally, there are statistically significant interactions between Group and Fixation duration on source features ($\beta=-245.26, p=0.044,95\% CI=[7.19, 483.32]$), English level and Fixation duration on source features ($\beta=2.71, p=0.047,95\% CI=[0.04, 5.38]$), and Fixation duration on SERP and Fixation duration on source features ($\beta=21.17, p=0.030,95\% CI=[2.13, 40.22]$) (Table 3 and Figures 7 to 9).
 
-```{r include=FALSE}
+The second model ($R^2=0.64, R^2 adusted=0.514$) shows statistically significant effects for all predictors and interactions (see Table 4 and Figures 10 to 23).
+
+The third model ($Marginal R^2=0.167, Conditional R^2=0.436$) shows statistically significant effects of English level ($\beta=0.05, p=0.025, 95\%CI=[0.01, 0.10]$), Fixation duration on source features ($\beta=-0.95, p=0.020, 95\%CI=[-1.75, -0.15]$), and Moment ($\beta=-0.90, p=0.002, 95\%CI=[-1.47, -0.33]$), see Table 5.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Fit model 1 for RQ2
 rq2_model1 = data %>%
   lm(argumentation ~ group * lextale * serp_clean_log * source_features_clean_log, data = .)
@@ -581,20 +576,18 @@ rq2_model3 = data %>%
        data = .)
 ```
 
-**Table 2**
-
-*...*
-
 ```{r echo=FALSE}
-# Print table with statistical results
+# Table 3
 # tab_model(rq2_model1)
+# Table 4
 # tab_model(rq2_model2)
+# Table 5
 # tab_model(rq2_model3)
 ```
 
 ### Figure 5
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure5 = get_model_data(rq2_model1, 'eff')$serp_clean_log %>%
   as_tibble() %>%
@@ -622,7 +615,7 @@ figure5
 
 ### Figure 6
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure6 = get_model_data(rq2_model1, 'eff')$source_features %>%
   as_tibble() %>%
@@ -650,7 +643,7 @@ figure6
 
 ### Figure 7
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure7 = get_model_data(rq2_model1, 'int')[[4]] %>%
   as_tibble() %>%
@@ -691,7 +684,7 @@ figure7
 
 ### Figure 8
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure8 = get_model_data(rq2_model1, 'int')[[5]] %>%
   as_tibble() %>%
@@ -727,7 +720,7 @@ figure8
 
 ### Figure 9
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure9 = get_model_data(rq2_model1, 'int')[[6]] %>%
   as_tibble() %>%
@@ -763,7 +756,7 @@ figure9
 
 ### Figure 10
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure10 = get_model_data(rq2_model2, 'eff')$group %>%
   as_tibble() %>%
@@ -796,7 +789,7 @@ figure10
 
 ### Figure 11
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure11 = get_model_data(rq2_model2, 'eff')$lextale %>%
   as_tibble() %>%
@@ -824,7 +817,7 @@ figure11
 
 ### Figure 12
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure12 = get_model_data(rq2_model2, 'eff')$serp_clean_log %>%
   as_tibble() %>%
@@ -852,7 +845,7 @@ figure12
 
 ### Figure 13
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure13 = get_model_data(rq2_model2, 'eff')$source_features_clean_log %>%
   as_tibble() %>%
@@ -880,7 +873,7 @@ figure13
 
 ### Figure 14
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure14 = get_model_data(rq2_model2, 'int')[[1]] %>%
   as_tibble() %>%
@@ -921,7 +914,7 @@ figure14
 
 ### Figure 15
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure15 = get_model_data(rq2_model2, 'int')[[2]] %>%
   as_tibble() %>%
@@ -962,7 +955,7 @@ figure15
 
 ### Figure 16
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure16 = get_model_data(rq2_model2, 'int')[[3]] %>%
   as_tibble() %>%
@@ -998,7 +991,7 @@ figure16
 
 ### Figure 17
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure17 = get_model_data(rq2_model2, 'int')[[4]] %>%
   as_tibble() %>%
@@ -1039,7 +1032,7 @@ figure17
 
 ### Figure 18
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure18 = get_model_data(rq2_model2, 'int')[[5]] %>%
   as_tibble() %>%
@@ -1075,7 +1068,7 @@ figure18
 
 ### Figure 19
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure19 = get_model_data(rq2_model2, 'int')[[6]] %>%
   as_tibble() %>%
@@ -1111,7 +1104,7 @@ figure19
 
 ### Figure 20
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
 figure20 = get_model_data(rq2_model2, 'int')[[7]] %>%
   as_tibble() %>%
@@ -1120,7 +1113,7 @@ figure20 = get_model_data(rq2_model2, 'int')[[7]] %>%
            recode(`1` = 'EMME', `2` = 'VIDEO'),
          facet = facet %>% 
            str_replace_all('serp_clean_log',
-                           'Fixation duration on SERP')) %>%
+                           str_wrap('Fixation duration on SERP', 20))) %>%
   ggplot(aes(x, 
              predicted, 
              ymin = conf.low, 
@@ -1156,11 +1149,35 @@ figure20
 
 ### Figure 21
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[8]]
-
-figure21
+figure21 = get_model_data(rq2_model2, 'int')[[8]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO'),
+         facet = facet %>% 
+           str_replace_all('source_features_clean_log',
+                           str_wrap('Fixation duration on source features', 20))) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = 1)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('English level',
+                  18)) + 
+  facet_grid(cols = vars(facet))
 
 ggsave('figures/Figure21.png', 
        figure21,
@@ -1175,11 +1192,35 @@ figure21
 
 ### Figure 22
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[9]]
-
-figure22
+figure22 = get_model_data(rq2_model2, 'int')[[9]] %>%
+  as_tibble() %>%
+  mutate(x = x %>% 
+           as_factor() %>%
+           recode(`1` = 'EMME', `2` = 'VIDEO'),
+         facet = facet %>% 
+           str_replace_all('source_features_clean_log',
+                           str_wrap('Fixation duration on source features', 20))) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high, 
+             label = round(predicted, 2),
+             color = group)) +
+  geom_errorbar(width = .1, position = position_dodge(width = .2)) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_text(position = position_dodge(width = 1)) +
+  xlab('Group') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on SERP',
+                  18)) + 
+  facet_grid(cols = vars(facet))
 
 ggsave('figures/Figure22.png', 
        figure22,
@@ -1194,11 +1235,30 @@ figure22
 
 ### Figure 23
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Plot model
-plot_model(rq2_model2, type = 'int')[[10]]
-
-figure23
+figure23 = get_model_data(rq2_model2, 'int')[[10]] %>%
+  as_tibble() %>%
+  mutate(facet = facet %>% 
+           str_replace_all('source_features_clean_log',
+                           str_wrap('Fixation duration on source features', 20))) %>%
+  ggplot(aes(x, 
+             predicted, 
+             ymin = conf.low, 
+             ymax = conf.high,
+             group = group)) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(alpha = .2) +
+  xlab('English level') + 
+  ylab(str_wrap(
+    'Scores on the Source Memory Task',
+    45)) +
+  scale_color_brewer(palette = 'Dark2') +
+  theme(legend.title = element_text()) +
+  labs(color = 
+         str_wrap('Fixation duration on SERP (log(ms))',
+                  18)) +
+  facet_grid(cols = vars(facet))
 
 ggsave('figures/Figure23.png', 
        figure23,
@@ -1211,23 +1271,10 @@ ggsave('figures/Figure23.png',
 figure23
 ```
 
-### Figure 24
-
-```{r}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # Plot model
 plot_model(rq2_model2, type = 'int')[[11]]
 
-figure24
-
-ggsave('figures/Figure24.png', 
-       figure24,
-       device = 'png', 
-       width = 16, 
-       height = 9, 
-       units = 'cm', 
-       dpi = 300)
-
-figure24
 ```
 
 ### References
