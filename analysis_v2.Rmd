@@ -1,0 +1,402 @@
+---
+title: "The attentive online reading: do eye movement modeling examples enhance navigation and evaluation of multiple documents in English (L2)?"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '5'
+  html_notebook:
+    toc: yes
+    toc_depth: 5
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '5'
+bibliography: references.bib
+csl: instituto-brasileiro-de-informacao-em-ciencia-e-tecnologia-abnt-initials.csl
+---
+
+# Preliminary Analyses
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Load packages
+library(tidyverse)    # Helper functions
+library(lme4)         # Mixed-effect models
+library(sjPlot)       # Model plotting
+library(datawizard)   # Skewness and Kurtosis functions
+library(jtools)       # APA theme
+library(gridExtra)    # Multiple plots in one single image
+library(openxlsx)     # Save file in xlsx format
+library(RColorBrewer) # Colors
+library(mediation)    # Mediation analysis
+
+# Configure APA theme for figures
+theme_set(theme_apa())
+
+# Prevent scientific notation
+options(scipen = 999)
+
+# Load raw data - serp
+serp_raw = read.table('data/serp_sem_soma.csv', 
+                 sep = ';', 
+                 dec = ',',
+                 encoding = 'UTF-8',
+                 header = 1) %>%
+  as_tibble()
+
+# Load raw data - source features
+source_features_raw = read.xlsx('data/source_features_sem_soma.xlsx')
+
+# Load raw data - reliable and non-reliable
+reliable_nonreliable_raw = read.xlsx('data/reliable_nonreliable_sem_soma.xlsx')
+```
+
+## Outliers Detection and Replacement
+
+Individual fixations that lasted two standart deviations above or below each participant fixation duration mean were considered outliers and were replaced by the participant fixation duration median[see @Salmeron2020, p. 1045]. Outliers represented 4.56% of the durations.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Check outliers (individual fixations that lasted two SD above or below each student mean)
+serp_raw = serp_raw %>% 
+  group_by(Participant) %>%
+  mutate(M = mean(EventDuration),
+         SD = sd(EventDuration),
+         outlier = EventDuration > M + (2 * SD) | 
+           EventDuration < M - (2 * SD),
+         Median = median(EventDuration))
+
+source_features_raw = source_features_raw %>%
+  group_by(Participant) %>%
+  mutate(M = mean(EventDuration),
+         SD = sd(EventDuration),
+         outlier = EventDuration > M + (2 * SD) |
+           EventDuration < M - (2 * SD),
+         Median = median(EventDuration))
+
+reliable_nonreliable_raw = reliable_nonreliable_raw %>%
+  group_by(Participant) %>%
+  mutate(M = mean(EventDuration),
+         SD = sd(EventDuration),
+         outlier = EventDuration > M + (2 * SD) | 
+           EventDuration < M - (2 * SD),
+         Median = median(EventDuration))
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Percentage of outliers
+
+# 4.56%
+c(serp_raw$outlier,
+  source_features_raw$outlier,
+  reliable_nonreliable_raw$outlier) %>% mean()
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Replace outlier with participant's median
+serp_raw = serp_raw %>%
+  mutate(EventDuration = 
+           ifelse(outlier, Median, EventDuration))
+
+source_features_raw = source_features_raw %>%
+  mutate(EventDuration = 
+           ifelse(outlier, Median, EventDuration))
+
+reliable_nonreliable_raw = reliable_nonreliable_raw %>%
+  mutate(EventDuration = 
+           ifelse(outlier, Median, EventDuration))
+
+# Get the mean of EventDuration per text (reliable/nonreliable)
+reliable_nonreliable = reliable_nonreliable_raw %>%
+  group_by(Participant, Text) %>%
+  summarise(EventDuration = sum(EventDuration),
+            Words = unique(Words)) %>%
+  summarise(EventDuration = EventDuration/Words,
+            Text = unique(Text)) %>%
+  mutate(Reliability = ifelse(Text %in% c(1, 3, 5), 'Nonreliable', 'Reliable'))
+
+# Get the mean of EventDuration per word
+serp = serp_raw %>%
+  group_by(Participant) %>%
+  summarise(EventDuration = sum(EventDuration)/233)
+
+source_features = source_features_raw %>%
+  group_by(Participant) %>%
+  summarise(EventDuration = sum(EventDuration)/60)
+
+reliable_nonreliable = reliable_nonreliable %>%
+  group_by(Participant, Reliability) %>%
+  summarise(EventDuration = mean(EventDuration)) %>%
+  pivot_wider(names_from = Reliability, values_from = EventDuration)
+
+# Write data
+write.xlsx(serp, 'data/serp_final.xlsx')
+
+write.xlsx(source_features, 'data/source_features_final.xlsx')
+
+write.xlsx(reliable_nonreliable, 'data/reliable_nonreliable_final.xlsx')
+```
+
+## Tests of Normality and Data Transformation
+
+```{r}
+data_final = read.xlsx('data/data_final.xlsx')
+```
+
+Figure 1 shows the frequency distributions of the time variables used in the study. Apart from mean fixation duration on reliable pages, all distributions have skewness values higher than 0.5, being right-skewed, as it is commonly observed with time variables. The variables were log-transformed to be better approximated to a normal distribution. The log-transformed variables are shown in Figure 2 with their theoretical probability distributions. Transformation resulted in improved skewness values for two of the four variables, namely, total fixation duration on serp and total fixation duration on source features. Thus, log-transformed variables were used for these two variables.
+
+[see @Salmeron2020, p. 1047]
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hist_serp = data_final %>%
+    ggplot(aes(serp_clean_per_word)) +
+    geom_histogram() +
+    xlab(str_wrap('Mean fixation duration on the web page headers and snippets within the SERP', 
+                  width = 32)) +
+    ylab('Frequency') +
+    annotate('text', 
+             x = 400, 
+             y = 7, 
+             label = paste0('Skewness: ', 
+                            round(
+                              skewness(data_final$serp_clean_per_word)[1], 2))) +
+    annotate('text', 
+             x = 400, 
+             y = 6, 
+             label = paste0('Kurtosis: ', 
+                            round(
+                              kurtosis(data_final$serp_clean_per_word)[1], 2)))
+
+hist_source_features = data_final %>%
+    ggplot(aes(source_features_per_word)) +
+    geom_histogram() +
+    xlab(str_wrap('Mean fixation duration on the source features', 
+                  width = 32)) +
+    ylab('Frequency') +
+    annotate('text', 
+             x = 600, 
+             y = 7, 
+             label = paste0('Skewness: ', 
+                            round(
+                              skewness(
+                                data_final$source_features_per_word
+                                )[1], 2))) +
+    annotate('text', 
+             x = 600, 
+             y = 6, 
+             label = paste0('Kurtosis: ', 
+                            round(
+                              kurtosis(
+                                data_final$source_features_per_word
+                                )[1], 2)))
+
+hist_reliable = data_final %>%
+    ggplot(aes(reliable_per_word)) +
+    geom_histogram() +
+    xlab(str_wrap('Mean fixation duration on realiable pages',
+                  width = 32)) +
+    ylab('Frequency') +
+    annotate('text', 
+             x = 350, 
+             y = 8, 
+             label = paste0('Skewness: ', 
+                            round(
+                              skewness(
+                                data_final$reliable_per_word
+                                )[1], 2))) +
+    annotate('text', 
+             x = 350, 
+             y = 7, 
+             label = paste0('Kurtosis: ', 
+                            round(
+                              kurtosis(
+                                data_final$reliable_per_word
+                                )[1], 2))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+hist_nonreliable = data_final %>%
+    ggplot(aes(nonreliable_per_word)) +
+    geom_histogram() +
+    xlab(str_wrap('Mean fixation duration on non-reliable pages', 
+                  width = 32)) +
+    ylab('Frequency') +
+    annotate('text', 
+             x = 400, 
+             y = 6, 
+             label = paste0('Skewness: ', 
+                            round(
+                              skewness(
+                                data_final$nonreliable_per_word
+                                )[1], 2))) +
+    annotate('text', 
+             x = 400, 
+             y = 5, 
+             label = paste0('Kurtosis: ', 
+                            round(
+                              kurtosis(
+                                data_final$nonreliable_per_word
+                                )[1], 2))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+
+figure1 = arrangeGrob(hist_serp, 
+                      hist_source_features, 
+                      hist_reliable, 
+                      hist_nonreliable, 
+                      ncol = 2)
+
+ggsave('figures/Figure1.png', 
+       figure1,
+       device = 'png', 
+       width = 16, 
+       height = 16, 
+       units = 'cm', 
+       dpi = 300)
+
+grid.arrange(figure1)
+
+```
+
+*Figure 1*. Histograms of time variables
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+data_final = data_final %>%
+  mutate(log_serp = log(serp_clean_per_word),
+         log_source_features = log(source_features_per_word),
+         log_reliable = log(reliable_per_word),
+         log_nonreliable = log(nonreliable_per_word))
+
+hist_log_serp = data_final %>%
+  ggplot(aes(log_serp)) +
+  geom_histogram(aes(y = ..density..)) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(data_final$log_serp), 
+                            sd = sd(data_final$log_serp)),
+                colour = 'red') +
+  xlab(str_wrap('Natural logarithm of mean fixation duration on the web page headers and snippets within the SERP',
+                width = 32)) +
+  ylab('Density') +
+  annotate('text', 
+           x = 4, 
+           y = 0.85, 
+           label = paste0('Skewness: ', 
+                          round(
+                            skewness(
+                              data_final$log_serp)[1], 2))) +
+  annotate('text', 
+           x = 4, 
+           y = 0.75, 
+           label = paste0('Kurtosis: ', 
+                          round(
+                            kurtosis(
+                              data_final$log_serp)[1], 2)))
+
+hist_log_source_features = data_final %>%
+  ggplot(aes(log_source_features)) +
+  geom_histogram(aes(y = ..density..)) +
+  stat_function(fun = dnorm, 
+                args = list(
+                  mean = mean(data_final$log_source_features), 
+                  sd = sd(data_final$log_source_features)),
+                colour = 'red') +
+    xlab(str_wrap('Natural logarithm of mean fixation duration on the source features', 
+                  width = 32)) +
+    ylab('Density') +
+    annotate('text', 
+             x = 4, 
+             y = 0.7, 
+             label = paste0('Skewness: ', 
+                            round(
+                              skewness(
+                                data_final$log_source_features
+                                )[1], 2))) +
+    annotate('text', 
+             x = 4, 
+             y = 0.6, 
+             label = paste0('Kurtosis: ', 
+                            round(
+                              kurtosis(
+                                data_final$log_source_features
+                                )[1], 2)))
+
+hist_log_reliable = data_final %>%
+  ggplot(aes(log_reliable)) +
+  geom_histogram(aes(y = ..density..)) +
+  stat_function(fun = dnorm, 
+              args = list(
+                mean = mean(data_final$log_reliable), 
+                sd = sd(data_final$log_reliable)),
+              colour = 'red') +
+  xlab(str_wrap('Natural logarithm of time spent reading realiable pages',
+                width = 32)) +
+  ylab('Density') +
+  annotate('text', 
+           x = 4.5, 
+           y = 2, 
+           label = paste0('Skewness: ', 
+                          round(
+                            skewness(
+                              data_final$log_reliable
+                              )[1], 2))) +
+  annotate('text', 
+           x = 4.5, 
+           y = 1.5, 
+           label = paste0('Kurtosis: ', 
+                          round(
+                            kurtosis(
+                              data_final$log_reliable
+                              )[1], 2)))
+
+hist_log_nonreliable = data_final %>%
+  ggplot(aes(log_nonreliable)) +
+  geom_histogram(aes(y = ..density..)) +
+  stat_function(fun = dnorm, 
+                args = list(
+                  mean = mean(data_final$log_nonreliable,
+                              na.rm = T), 
+                  sd = sd(data_final$log_nonreliable,
+                          na.rm = T)),
+                colour = 'red') +  
+  xlab(str_wrap('Natural logarithm of time spent reading non-realiable pages', 
+                width = 32)) +
+  ylab('Density') +
+  annotate('text', 
+           x = 4, 
+           y = 1.2, 
+           label = paste0('Skewness: ', 
+                          round(
+                            skewness(
+                              data_final$log_nonreliable
+                              )[1], 2))) +
+  annotate('text', 
+           x = 4, 
+           y = 1, 
+           label = paste0('Kurtosis: ', 
+                          round(
+                            kurtosis(
+                              data_final$log_nonreliable
+                              )[1], 2)))
+
+figure2 = arrangeGrob(hist_log_serp, 
+                      hist_log_source_features, 
+                      hist_log_reliable, 
+                      hist_log_nonreliable, 
+                      ncol = 2)
+
+ggsave('figures/Figure2.png', 
+       figure2,
+       device = 'png', 
+       width = 16, 
+       height = 16, 
+       units = 'cm', 
+       dpi = 300)
+
+grid.arrange(figure2)
+```
+
+*Figure 2*. Histograms of transformed time variables with theoretical probability distributions
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+data_final = data_final %>%
+  dplyr::select(-c(serp_clean_per_word, log_source_features, log_reliable, log_nonreliable))
+
+write.xlsx(data_final, 'data/data_final_transformed.xlsx')
+```

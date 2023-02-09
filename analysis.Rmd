@@ -27,6 +27,7 @@ library(jtools)       # APA theme
 library(gridExtra)    # Multiple plots in one single image
 library(openxlsx)     # Save file in xlsx format
 library(RColorBrewer) # Colors
+library(mediation)    # Mediation analysis
 
 # Configure APA theme for figures
 theme_set(theme_apa())
@@ -43,27 +44,11 @@ serp = read.table('data/serp_sem_soma.csv',
   as_tibble()
 
 # Load raw data - source_features
-source_features = read.table('data/source_features_sem_soma.csv', 
-                 sep = ';', 
-                 encoding = 'UTF-8', 
-                 header = 1) %>%
+source_features = read.xlsx('data/source_features_sem_soma.xlsx') %>%
   as_tibble()
 
-# Load raw data - relevant
-relevant = read.table('data/relevant_sem_soma.csv',
-                             sep = ';',
-                             encoding = 'UTF-8',
-                             header = 1) %>%
-  as_tibble() %>%
-  mutate(AOI = 'Reliable')
-
-# Load raw data - irrelevant
-irrelevant = read.table('data/irrelevant_sem_soma.csv',
-               sep = ';',
-               encoding = 'UTF-8',
-               header = 1) %>%
-      as_tibble() %>%
-      mutate(AOI = 'Non-reliable')
+# Load raw data - reliable and non-reliable
+reliable_nonreliable = read.xlsx('data/reliable_nonreliable_sem_soma.xlsx')
 ```
 
 ## Outliers Detection and Replacement
@@ -83,70 +68,53 @@ serp = serp %>%
 
 source_features = source_features %>%
   group_by(Participant) %>%
-  mutate(M = mean(Event.Duration..ms.),
-         SD = sd(Event.Duration..ms.),
-         outlier = Event.Duration..ms. > M + (2 * SD) |
-           Event.Duration..ms. < M - (2 * SD),
-         Median = median(Event.Duration..ms.))
+  mutate(M = mean(EventDuration),
+         SD = sd(EventDuration),
+         outlier = EventDuration > M + (2 * SD) |
+           EventDuration < M - (2 * SD),
+         Median = median(EventDuration))
 
-relevant = relevant %>%
-  group_by(Participant, AOI) %>%
-  mutate(M = mean(Event.Duration..ms.),
-         SD = sd(Event.Duration..ms.),
-         outlier = Event.Duration..ms. > M + (2 * SD) | 
-           Event.Duration..ms. < M - (2 * SD),
-         Median = median(Event.Duration..ms.))
-
-irrelevant = irrelevant %>%
-  group_by(Participant, AOI) %>%
-  mutate(M = mean(Event.Duration..ms.),
-         SD = sd(Event.Duration..ms.),
-         outlier = Event.Duration..ms. > M + (2 * SD) |
-           Event.Duration..ms. < M - (2 * SD),
-         Median = median(Event.Duration..ms.))
+reliable_nonreliable = reliable_nonreliable %>%
+  group_by(Participant) %>%
+  mutate(M = mean(EventDuration),
+         SD = sd(EventDuration),
+         outlier = EventDuration > M + (2 * SD) | 
+           EventDuration < M - (2 * SD),
+         Median = median(EventDuration))
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # Percentage of outliers
 
 # 4.56%
-c(serp$outlier,
-  source_features$outlier,
-  relevant$outlier,
-  irrelevant$outlier) %>% mean()
+c(#serp$outlier,
+  #source_features$outlier,
+  reliable_nonreliable$outlier) %>% mean()
 
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # Replace outlier with participant's median
 serp = serp %>%
-  mutate(Event.Duration..ms. = 
+  mutate(Even = 
            ifelse(outlier, Median, Event.Duration..ms.))
 
 source_features = source_features %>%
-  mutate(Event.Duration..ms. = 
-           ifelse(outlier, Median, Event.Duration..ms.))
+  mutate(EventDuration = 
+           ifelse(outlier, Median, EventDuration))
 
-relevant = relevant %>%
-  mutate(Event.Duration..ms. = 
-           ifelse(outlier, Median, Event.Duration..ms.))
+reliable_nonreliable = reliable_nonreliable %>%
+  mutate(EventDuration = 
+           ifelse(outlier, Median, EventDuration))
 
-irrelevant = irrelevant %>%
-  mutate(Event.Duration..ms. = 
-           ifelse(outlier, Median, Event.Duration..ms.))
-
-# Sum the fixations
-serp = serp %>%
-  summarise(EventDuration = sum(Event.Duration..ms.))
-
-source_features = source_features %>%
-  summarise(EventDuration = sum(Event.Duration..ms.))
-
-relevant = relevant  %>%
-  summarise(EventDuration = sum(Event.Duration..ms.))
-
-irrelevant = irrelevant %>% 
-  summarise(EventDuration = sum(Event.Duration..ms.))
+# Get the mean of EventDuration per word
+reliable_nonreliable = reliable_nonreliable %>%
+  group_by(Participant, Text) %>%
+  summarise(EventDuration = sum(EventDuration),
+            Words = unique(Words)) %>%
+  summarise(EventDuration = EventDuration/Words,
+            Text = unique(Text)) %>%
+  mutate(Reliability = ifelse(Text %in% c(1, 3, 5), 'Nonreliable', 'Reliable'))
 ```
 
 ## Tests of Normality and Data Transformation
@@ -179,7 +147,7 @@ hist_serp = serp %>%
 hist_source_features = source_features %>%
     ggplot(aes(EventDuration)) +
     geom_histogram() +
-    xlab(str_wrap('Total fixation duration on the source features', 
+    xlab(str_wrap('Mean fixation duration on the source features', 
                   width = 32)) +
     ylab('Frequency') +
     annotate('text', 
@@ -200,31 +168,37 @@ hist_source_features = source_features %>%
                                 )[1], 2))) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-hist_reliable = relevant %>%
+reliable = reliable_nonreliable %>%
+  filter(Reliability == 'Reliable')
+
+hist_reliable = reliable %>%
     ggplot(aes(EventDuration)) +
     geom_histogram() +
     xlab(str_wrap('Time spent reading realiable pages',
                   width = 32)) +
     ylab('Frequency') +
     annotate('text', 
-             x = 450000, 
-             y = 11, 
+             x = 600, 
+             y = 15, 
              label = paste0('Skewness: ', 
                             round(
                               skewness(
-                                relevant$EventDuration
+                                reliable$EventDuration
                                 )[1], 2))) +
     annotate('text', 
-             x = 450000, 
-             y = 10, 
+             x = 600, 
+             y = 14, 
              label = paste0('Kurtosis: ', 
                             round(
                               kurtosis(
-                                relevant$EventDuration
+                                reliable$EventDuration
                                 )[1], 2))) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-hist_nonreliable = irrelevant %>%
+nonreliable = reliable_nonreliable %>%
+  filter(Reliability == 'Nonreliable')
+
+hist_nonreliable = nonreliable %>%
     ggplot(aes(EventDuration)) +
     geom_histogram() +
     xlab(str_wrap('Time spent reading non-reliable pages', 
@@ -236,7 +210,7 @@ hist_nonreliable = irrelevant %>%
              label = paste0('Skewness: ', 
                             round(
                               skewness(
-                                irrelevant$EventDuration
+                                irreliable$EventDuration
                                 )[1], 2))) +
     annotate('text', 
              x = 450000, 
@@ -244,7 +218,7 @@ hist_nonreliable = irrelevant %>%
              label = paste0('Kurtosis: ', 
                             round(
                               kurtosis(
-                                irrelevant$EventDuration
+                                irreliable$EventDuration
                                 )[1], 2))) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
@@ -328,46 +302,46 @@ hist_log_source_features = source_features %>%
                                 source_features$log_EventDuration
                                 )[1], 2)))
 
-hist_log_reliable = relevant %>%
+hist_log_reliable = reliable %>%
   ggplot(aes(log(EventDuration))) +
   geom_histogram(aes(y = ..density..)) +
   stat_function(fun = dnorm, 
               args = list(
-                mean = mean(log(relevant$EventDuration)), 
-                sd = sd(log(relevant$EventDuration))),
+                mean = mean(log(reliable$EventDuration)), 
+                sd = sd(log(reliable$EventDuration))),
               colour = 'red') +
   xlab(str_wrap('Natural logarithm of time spent reading realiable pages',
                 width = 32)) +
   ylab('Density') +
   annotate('text', 
-           x = 12.7, 
-           y = 1.85, 
+           x = 3, 
+           y = 1.1, 
            label = paste0('Skewness: ', 
                           round(
                             skewness(
-                              log(relevant$EventDuration)
+                              log(reliable$EventDuration)
                               )[1], 2))) +
   annotate('text', 
-           x = 12.7, 
-           y = 1.7, 
+           x = 3, 
+           y = 1, 
            label = paste0('Kurtosis: ', 
                           round(
                             kurtosis(
-                              log(relevant$EventDuration)
+                              log(reliable$EventDuration)
                               )[1], 2)))
 
-irrelevant = irrelevant %>%
+irreliable = irreliable %>%
   mutate(log_EventDuration = 
            log(EventDuration))
 
-hist_log_nonreliable = irrelevant %>%
+hist_log_nonreliable = irreliable %>%
   ggplot(aes(log_EventDuration)) +
   geom_histogram(aes(y = ..density..)) +
   stat_function(fun = dnorm, 
                 args = list(
-                  mean = mean(irrelevant$log_EventDuration,
+                  mean = mean(irreliable$log_EventDuration,
                               na.rm = T), 
-                  sd = sd(irrelevant$log_EventDuration,
+                  sd = sd(irreliable$log_EventDuration,
                           na.rm = T)),
                 colour = 'red') +  
   xlab(str_wrap('Natural logarithm of time spent reading non-realiable pages', 
@@ -379,7 +353,7 @@ hist_log_nonreliable = irrelevant %>%
            label = paste0('Skewness: ', 
                           round(
                             skewness(
-                              irrelevant$log_EventDuration
+                              irreliable$log_EventDuration
                               )[1], 2))) +
   annotate('text', 
            x = 12.5, 
@@ -387,7 +361,7 @@ hist_log_nonreliable = irrelevant %>%
            label = paste0('Kurtosis: ', 
                           round(
                             kurtosis(
-                              irrelevant$log_EventDuration
+                              irreliable$log_EventDuration
                               )[1], 2)))
 
 figure2 = arrangeGrob(hist_log_serp, 
@@ -412,8 +386,8 @@ grid.arrange(figure2)
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 write_csv(serp, 'data/serp.csv')
 write_csv(source_features, 'data/source_features.csv')
-write_csv(relevant, 'data/reliable.csv')
-write_csv(irrelevant, 'data/nonreliable.csv')
+write_csv(reliable, 'data/reliable.csv')
+write_csv(nonreliable, 'data/nonreliable.csv')
 
 data = read.table('data/Variables_L2_EMME_clean_complete.csv', 
                  sep = ';', 
@@ -428,13 +402,13 @@ data = read.table('data/Variables_L2_EMME_clean_complete.csv',
               rename(source_features_clean = EventDuration,
                      source_features_clean_log = log_EventDuration),
             by = 'Participant') %>%
-  left_join(relevant %>%
+  left_join(reliable %>%
               rename(reliable = EventDuration) %>%
-              select(-AOI),
+              dplyr::select(-AOI),
             by = 'Participant') %>%
-  left_join(irrelevant %>%
+  left_join(irreliable %>%
               rename(nonreliable = EventDuration) %>%
-              select(c(Participant, nonreliable)),
+              dplyr::select(c(Participant, nonreliable)),
             by = 'Participant') %>%
   mutate(group = ifelse(Participant %>% str_detect('EMME'), 
                         'EMME', 
@@ -447,11 +421,33 @@ write.xlsx(data, 'data/data.xlsx')
 
 ## Research Questions 1a and 1b
 
-To answer the research questions RQ1a and RQ1b, two linear models were fit: the first one was a multiple linear regression model with the natural logarithm of fixation duration on SERP as response and Group (two levels: EMME and VIDEO), L2 level, and self-perceived strategic behavior as predictors; the second one was a mixed-effects model with total fixation duration on source features, on reliable and non-reliable pages, as response, and Group, L2 level, and self-perceived strategic behavior as predictors with random intercepts for participants.
+To answer the research questions RQ1a and RQ1b, two linear models were fit: the first one was a multiple linear regression model with the natural logarithm of fixation duration on SERP as response and Group (two levels: EMME and VIDEO), L2 level, and self-perceived strategic behavior as predictors; the second one was a mixed-effects model with total fixation duration on source features, on reliable and non-reliable pages, as response, and, Group and Reliability as predictors, and L2 level and self-perceived strategic behavior as mediators, with random intercepts for participants.
 
 The first model shows no statistically significant effect when all the possible interactions are considered. When interactions are removed from the model, it shows a statistically significant effect of Group ($\beta=-0.67, p=0.001,95\% CI=[-1.06, -0.28], R^2=.19, R^2 adjusted=.15$) (see Table 1).
 
 The second model shows a similar pattern: no statistically significant effects when the interactions are considered and a statistically significant effect of Group ($\beta=56121.42, p=0.040,95\% CI=[2604.90, 109637.94], Marginal R^2=.12, Conditional R^2=.77$) when the interactions are removed from the model (see Table 2).
+
+```{r}
+# MEDIATION ANALYSIS
+# Total effect for RQ1
+rq1_total = reliable_nonreliable %>%
+  group_by(Participant, Reliability) %>%
+  summarise(EventDuration = mean(EventDuration)) %>%
+  mutate(Group = ifelse(str_starts(Participant, 'EMME'), 'EMME', 'VIDEO') %>% as_factor()) %>%
+  lmer(EventDuration ~ Group + (1|Participant), data = .)
+
+tab_model(rq1_total)
+
+rq1_mediator1 = data %>%
+  lm(lextale ~ group, data = .)
+
+tab_model(rq1_mediator)
+
+rq1_mediator2 = data %>%
+  lm(survey ~ group, data = .)
+
+tab_model(rq1_mediator2)
+```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # Fit model 1 for RQ1
