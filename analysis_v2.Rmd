@@ -408,6 +408,14 @@ data_final_transformed = read.xlsx(
 
 # Main Analysis
 
+## Descriptive statistics
+
+```{r}
+# Adicionar tabela com resumo das variáveis:
+# Média, desvio padrão, simetria, kurtose, mínimo, máximo (por grupo)
+```
+
+
 ## Research Questions 1a and 1b
 
 ### RQ1a
@@ -480,7 +488,7 @@ figure3
 
 "Do EMMEs affect source evaluation of multiple online documents in English (L2) that either endorse or refute the Learning Styles (LS) misconception, to be analyzed by the contrast between fixation duration on reliable versus non-reliable pages, and on total fixation duration on the source features (author’s name and occupation)?  Do L2 level and self-perceived strategic behavior mediate this interaction between EMMEs and evaluation of sources in L2?"
 
-To answer these questions a mediation analysis were performed. First, a multiple linear mixed-effects model was fit with Fixation duration on reliable and non-reliable pages as response, reliability (two levels: Reliable and Non-reliable), Group (two levels: Control and Experimental) and their interaction as predictors and random intercepts for participants. The model shows a statistically significant effect of Group ($\beta=-43.57, p=.044, 95\%~CI=[-85.99, -1.16], Marginal~R^2=.07, Conditional~R^2=.83$) but not of Reliability ($\beta=6.37, p=.369, 95\%~CI=[-7.63, 20.36]$). It also shows a statistically significant interaction between Group and Reliability ($\beta=29.39, p=.034, 95%~CI=[2.26, 56.52]$). Since there are no effects of Group on L2 level nor Self-perceived behaviour, no additional steps were conducted. No mediation effects were observed with this model. Then, a linear model was fit with Fixation duration on source features as response and Group predictor. The model shows no statistically significant effects of Group ($\beta=-60.29, p=.174, 95\%~CI=[-148.07, 27.49], R^2=0.03, Adjusted~R^2=0.02$) and, thus, no additional steps were necessary.
+To answer these questions a mediation analysis was performed. First, a multiple linear mixed-effects model was fit with Fixation duration on reliable and non-reliable pages as response, reliability (two levels: Reliable and Non-reliable), Group (two levels: Control and Experimental) and their interaction as predictors and random intercepts for participants. The model shows a statistically significant effect of Group ($\beta=-43.57, p=.044, 95\%~CI=[-85.99, -1.16], Marginal~R^2=.07, Conditional~R^2=.83$) but not of Reliability ($\beta=6.37, p=.369, 95\%~CI=[-7.63, 20.36]$). It also shows a statistically significant interaction between Group and Reliability ($\beta=29.39, p=.034, 95%~CI=[2.26, 56.52]$). Since there are no effects of Group on L2 level nor Self-perceived behaviour, no additional steps were conducted. No mediation effects were observed with this model. Then, a linear model was fit with Fixation duration on source features as response and Group predictor. The model shows no statistically significant effects of Group ($\beta=-60.29, p=.174, 95\%~CI=[-148.07, 27.49], R^2=0.03, Adjusted~R^2=0.02$) and, thus, no additional steps were necessary.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # Total effect for RQ1b, Model 1
@@ -543,3 +551,60 @@ ggsave('figures/Figure4.png',
 
 figure4
 ```
+
+## Research Questions 2a, 2b and 2c
+
+### RQ2a
+
+"RQ2a Do EMMEs enhance argumentative reasoning, i.e., identification of opposing perspectives about the Learning styles theory, as measured by an essay writing task? Do English level, navigation and evaluation behavior mediate the effect of EMMEs on argumentation score?"
+
+To answer these questions a mediation analysis was performed. A linear model with Argumentation scores on an essay writing task as response and Group as predictor. No effect of Group was observed $\beta=0.19, p=.683, 95\%~CI=[-0.75, 1.14], R^2=.003, Adjusted R^2=-.015$. Since there was no effect of Group, the additional steps were not performed.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Total effect for RQ2a
+rq2a_model_total = data_final_transformed %>%
+  mutate(group = group %>% 
+           as_factor()  %>%
+           relevel('VIDEO')) %>%
+  lm(argumentationNew ~ group, data = .)
+
+tab_model(rq2a_model_total)
+```
+
+### RQ2b
+
+"RQ2b Do EMMEs increase memory for the sources when reading multiple documents? Do English level, navigation and evaluation behavior mediate the effect of EMMEs on source memory?"
+
+To answer these questions a mediation analysis was performed. A linear model with Source memory task scores as response and Group as predictor. No effect of Group was observed $\beta=-1.39, p=.187, 95\%~CI=[-3.48, 0.70], R^2=.031, Adjusted R^2=-.014$. Since there was no effect of Group, the additional steps were not performed.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Total effect for RQ2b
+rq2b_model_total = data_final_transformed %>%
+  mutate(group = group %>% 
+           as_factor()  %>%
+           relevel('VIDEO')) %>%
+  lm(smt ~ group, data = .)
+
+tab_model(rq2b_model_total)
+```
+
+### RQ2c
+
+"RQ 2c Are EMMEs linked with updating of misconceptions about Learning Styles, to be measured in a pre/posttest? Do English level, navigation, and evaluation behavior (including memory for the sources) mediate the effect of EMMEs on misconception change?"
+
+To answer these questions a mediation analysis was performed. A linear model with Scores on a pre and post-test of misconceptions about learning styles as response and Group as predictor. No effect of Group was observed $\beta=0.46, p=.218, 95\%~CI=[-0.28, 1.20], R^2=.014, Adjusted R^2=-.005$. Since there was no effect of Group, the additional steps were not performed.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Total effect for RQ2c
+rq2c_model_total = data_final_transformed %>%
+  pivot_longer(c(pre, post),
+               names_to = 'moment',
+               values_to = 'score') %>%
+  mutate(group = group %>% 
+           as_factor()  %>%
+           relevel('VIDEO')) %>%
+  lm(score ~ group, data = .)
+
+tab_model(rq2c_model_total)
+```
+
